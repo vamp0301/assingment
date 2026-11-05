@@ -1,0 +1,17 @@
+# Headless (clusterIP: None): gives the StatefulSet pod the stable DNS name
+# mongodb-0.mongodb-headless.flask-mongodb.svc.cluster.local
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-headless
+  namespace: flask-mongodb
+  labels:
+    app: mongodb
+spec:
+  clusterIP: None
+  selector:
+    app: mongodb
+  ports:
+    - name: mongodb
+      port: 27017
+      targetPort: 27017

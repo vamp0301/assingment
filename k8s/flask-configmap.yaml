@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flask-config
+  namespace: flask-mongodb
+data:
+  FLASK_ENV: "production"
+  MONGODB_HOST: "mongodb.flask-mongodb.svc.cluster.local"
+  MONGODB_PORT: "27017"
+  MONGODB_AUTH_SOURCE: "admin"
+  MONGODB_DATABASE: "flask_db"
+  MONGODB_COLLECTION: "data"

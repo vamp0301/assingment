@@ -1,0 +1,37 @@
+# Temporary HPA test traffic. Remove it afterwards:
+#   kubectl delete -f tests/load-generator.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: load-generator
+  namespace: flask-mongodb
+  labels:
+    app: load-generator
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: load-generator
+  template:
+    metadata:
+      labels:
+        app: load-generator
+    spec:
+      containers:
+        - name: load
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              for i in 1 2 3 4 5 6; do
+                (while true; do wget -q -O /dev/null http://flask-service/; done) &
+              done
+              wait
+          resources:
+            requests:
+              cpu: 100m
+              memory: 32Mi
+            limits:
+              cpu: 500m
+              memory: 64Mi

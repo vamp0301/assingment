@@ -1,0 +1,18 @@
+# PersistentVolume is cluster-scoped, so it has no namespace.
+# Minikube persists /data on the node across restarts.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mongodb-pv
+  labels:
+    app: mongodb
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: mongodb-manual
+  hostPath:
+    path: /data/mongodb
+    type: DirectoryOrCreate
