@@ -36,6 +36,7 @@ Everything runs in the `flask-mongodb` namespace. Credentials come from the `mon
 ├── .env.example          # Placeholder values
 ├── .gitignore
 ├── README.md
+├── screenshots/          # Autoscaling, API and authentication output
 ├── app/
 │   ├── app.py
 │   ├── requirements.txt
@@ -309,7 +310,7 @@ kubectl apply -f tests/load-generator.yaml
 kubectl delete -f tests/load-generator.yaml
 ```
 
-To send more traffic, raise the generator's replicas with `kubectl scale deployment load-generator --replicas=12 -n flask-mongodb`. In testing this still settled at 4 Flask replicas.
+To send more traffic, raise the generator's replicas with `kubectl scale deployment load-generator --replicas=12 -n flask-mongodb`. This is the load used for the final run below, which reached the 5-replica maximum.
 
 ## Test results
 
@@ -329,7 +330,57 @@ These are results actually observed on this setup: macOS on Apple Silicon, Minik
 | Access from Mac | Worked through port-forward and NodePort |
 | Image contents | `app.py` and `requirements.txt` only, no `.env`; runs as UID 10001 |
 
-### HPA timeline
+### HPA timeline: final run (12 generator pods)
+
+The HPA scaled from 2 to the maximum of 5 replicas under load, then back to 2 after the load was removed.
+
+| Time (IST) | Phase | CPU vs 70% target | Replicas |
+|---|---|---|---|
+| 12:05:36 | Before load; load started | 3% | 2 |
+| 12:06:41 | CPU peak | **169%** | 2 (new pods starting) |
+| 12:06:52 | Scaling up | 169% (not yet refreshed) | **4** |
+| 12:07:05 | Scaled to maximum | 169% (not yet refreshed) | **5** |
+| 12:07:39 | Under load | 34% | 5 |
+| 12:08:42 | Load removed | 44% | 5 |
+| 12:10:46 | Metrics caught up | 3% | 5 |
+| 12:12:48 | Scaling down | 3% | 4 |
+| 12:14:35 | Scaled down | 3% | **2** |
+
+Times are when each state was polled. The HPA events recorded the changes at 12:06:33 (4), 12:06:48 (5), 12:12:18 (4) and 12:14:19 (2), so scale-down finished about 5.5 minutes after the load stopped, in line with the 5-minute stabilization window.
+
+The replica count follows the formula above: `ceil(2 * 169 / 70) = 5`.
+
+### Autoscaling screenshots
+
+These images were generated from the saved terminal output of the commands shown, during the final run. They are not captures of a terminal window. Only the title bar and the `captured` timestamp line were added.
+
+**Before load**
+
+![Before load](screenshots/01-before-load.png)
+
+**CPU peak**
+
+![CPU peak](screenshots/02-cpu-peak.png)
+
+**Scaled up to 5 replicas.** `kubectl top` still lists two pods here because metrics for the new pods weren't available yet.
+
+![Scaled up to 5 replicas](screenshots/03-scaled-up.png)
+
+**After scale-down, with scaling events.** `COUNT` includes earlier runs, and the list shows only the latest time for each message.
+
+![After scale-down](screenshots/04-after-scale-down.png)
+
+**Full HPA watch**
+
+![HPA watch](screenshots/05-hpa-watch.png)
+
+### API and authentication screenshots
+
+![Flask API responses](screenshots/06-api.png)
+
+![MongoDB rejects unauthenticated access](screenshots/07-mongodb-auth.png)
+
+### HPA timeline: earlier run (4 generator pods)
 
 | Time | Phase | CPU vs 70% target | Replicas | Pod CPU |
 |---|---|---|---|---|
@@ -344,7 +395,7 @@ These are results actually observed on this setup: macOS on Apple Silicon, Minik
 
 The HPA events recorded both changes: `New size: 4; reason: cpu resource utilization (percentage of request) above target` and `New size: 2; reason: All metrics below target`.
 
-**Maximum replicas:** the 5-replica maximum is configured but was not reached in testing. A second, 4-minute run tripled the generator to 12 pods. CPU again hit 122%, the HPA again scaled from 2 to 4, and CPU then settled at about 59%. That is below the 70% target, so the HPA correctly had no reason to add a fifth pod.
+**Differences between runs:** peak CPU varied, so the highest replica count did too. Two earlier runs peaked at 122-123% and stopped at 4 replicas (`ceil(2 * 123 / 70) = 4`), one of them with 12 generator pods. Another 12-pod run peaked at 200%, reached 5 replicas, and the HPA reported `TooManyReplicas`, meaning it wanted more than the configured maximum. The cause of the variation wasn't investigated.
 
 ### Issues encountered
 
@@ -417,3 +468,4 @@ minikube stop
 - [x] Design choices and alternatives
 - [x] Virtual environment benefits (cookie point)
 - [x] Testing scenarios and results (cookie point)
+- [x] Autoscaling results and screenshots
